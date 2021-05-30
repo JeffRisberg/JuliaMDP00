@@ -315,3 +315,10 @@ function policy_iteration(mdp::T) where {T <: AbstractMarkovDecisionProcess}
         end
     end
 end
+
+#-----
+
+result = value_iteration(sequential_decision_environment)
+println(result)
+r = show_grid(sequential_decision_environment, result)
+println(r)
