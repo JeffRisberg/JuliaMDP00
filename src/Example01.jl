@@ -5,6 +5,7 @@ MDP:
 - Date: 2021-05-28
 =#
 
+include("utils.jl")
 
 export AbstractMarkovDecisionProcess, MarkovDecisionProcess,
         reward, transition_model, actions,
