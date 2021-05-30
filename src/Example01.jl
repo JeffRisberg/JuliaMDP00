@@ -155,10 +155,10 @@ function transition_model(gmdp::GridMarkovDecisionProcess, state::Tuple{Int64, I
 end
 
 function show_grid(gmdp::GridMarkovDecisionProcess, mapping::Dict)
-    local grid::Array{Union{Nothing, String}, 2};
+    local grid::Array{Union{Nothing, Any}, 2};
     local rows::AbstractVector = [];
     for i in 1:getindex(size(gmdp.grid), 1)
-        local row::Array{Union{Nothing, String}, 1} = Array{Union{Nothing, String}, 1}();
+        local row::Array{Union{Nothing, Any}, 1} = Array{Union{Nothing, Any}, 1}();
         for j in 1:getindex(size(gmdp.grid), 2)
             push!(row, get(mapping, (i, j), nothing));
         end
@@ -188,9 +188,9 @@ end
 # Matrices in Julia start from the upper-left corner and index (1, 1).
 sequential_decision_environment = GridMarkovDecisionProcess((1, 1),
                                             Set([(2, 4), (3, 4)]),
-                                            [-0.04 -0.04 -0.04 -0.04;
-                                            -0.04 nothing -0.04 -1;
-                                            -0.04 -0.04 -0.04 +1]);
+                                            [-0.0 -0.0 -0.0 -0.0;
+                                            -0.0 nothing -0.0 -1;
+                                            -0.0 -0.0 -0.0 +1]);
 
 """
     value_iteration(mdp::T; epsilon::Float64=0.001) where {T <: AbstractMarkovDecisionProcess}
@@ -202,7 +202,7 @@ function value_iteration(mdp::T; epsilon::Float64=0.001) where {T <: AbstractMar
     local U_prime::Dict = Dict(collect(Pair(state, 0.0) for state in mdp.states));
     while (true)
         local U::Dict = copy(U_prime);
-        local delta::Float64 = 0.0;
+        local delta::Float64 = 0.0
         for state in mdp.states
             U_prime[state] = (reward(mdp, state)
                                 + (mdp.gamma
@@ -212,16 +212,16 @@ function value_iteration(mdp::T; epsilon::Float64=0.001) where {T <: AbstractMar
             delta = max(delta, abs(U_prime[state] - U[state]));
         end
         if (delta < ((epsilon * (1 - mdp.gamma))/mdp.gamma))
-            return U;
+            return U
         end
     end
 end
 
-function value_iteration(gmdp::GridMarkovDecisionProcess; epsilon::Float64=0.001)
+function value_iteration(gmdp::GridMarkovDecisionProcess; epsilon::Float64=0.001, maxiter::Int64=20)
     local U_prime::Dict = Dict(collect(Pair(state, 0.0) for state in gmdp.states));
-    while (true)
+    for iter in 1:maxiter
         local U::Dict = copy(U_prime);
-        local delta::Float64 = 0.0;
+        local delta::Float64 = 0.0
         for state in gmdp.states
             U_prime[state] = (reward(gmdp, state)
                             + (gmdp.gamma
@@ -230,10 +230,12 @@ function value_iteration(gmdp::GridMarkovDecisionProcess; epsilon::Float64=0.001
                                         for action in actions(gmdp, state))...)));
             delta = max(delta, abs(U_prime[state] - U[state]));
         end
+        println(delta)
         if (delta < ((epsilon * (1 - gmdp.gamma))/gmdp.gamma))
-            return U;
+            return U
         end
     end
+    return U_prime
 end
 
 function expected_utility(mdp::T, U::Dict, state::Tuple{Int64, Int64}, action::Tuple{Int64, Int64}) where {T <: AbstractMarkovDecisionProcess}
@@ -318,7 +320,7 @@ end
 
 #-----
 
-result = value_iteration(sequential_decision_environment)
+result = value_iteration(sequential_decision_environment, epsilon=0.0000001, maxiter=1000)
 println(result)
 r = show_grid(sequential_decision_environment, result)
 println(r)
