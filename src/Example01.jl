@@ -7,6 +7,9 @@ MDP:
 
 include("utils.jl")
 
+using Random
+RandomDeviceInstance = RandomDevice()
+
 export AbstractMarkovDecisionProcess, MarkovDecisionProcess,
         reward, transition_model, actions,
         GridMarkovDecisionProcess, go_to, show_grid, to_arrows,
@@ -174,9 +177,9 @@ end
 # (1, 0) will move the agent downward.
 function to_arrows(gmdp::GridMarkovDecisionProcess, policy::Dict)
     local arrow_characters::Dict = Dict([Pair((0, 1), ">"),
-                                        Pair((-1, 0), "^"),
+                                        Pair((-1, 0), "V"),
                                         Pair((0, -1), "<"),
-                                        Pair((1, 0), "v"),
+                                        Pair((1, 0), "^"),
                                         Pair(nothing, ".")]);
     return show_grid(gmdp, Dict(collect(Pair(state, arrow_characters[action])
                                     for (state, action) in policy)));
@@ -198,24 +201,6 @@ sequential_decision_environment = GridMarkovDecisionProcess((1, 1),
 Return the utilities of the MDP's states as a Dict by applying the value iteration algorithm (Fig. 17.4)
 on the given Markov decision process 'mdp' and a arbitarily small positive number 'epsilon'.
 """
-function value_iteration(mdp::T; epsilon::Float64=0.001) where {T <: AbstractMarkovDecisionProcess}
-    local U_prime::Dict = Dict(collect(Pair(state, 0.0) for state in mdp.states));
-    while (true)
-        local U::Dict = copy(U_prime);
-        local delta::Float64 = 0.0
-        for state in mdp.states
-            U_prime[state] = (reward(mdp, state)
-                                + (mdp.gamma
-                                * max((sum(collect(p * U[state_prime]
-                                                    for (p, state_prime) in transition_model(mdp, state, action)))
-                                        for action in actions(mdp, state))...)));
-            delta = max(delta, abs(U_prime[state] - U[state]));
-        end
-        if (delta < ((epsilon * (1 - mdp.gamma))/mdp.gamma))
-            return U
-        end
-    end
-end
 
 function value_iteration(gmdp::GridMarkovDecisionProcess; epsilon::Float64=0.001, maxiter::Int64=20)
     local U_prime::Dict = Dict(collect(Pair(state, 0.0) for state in gmdp.states));
@@ -255,9 +240,16 @@ and the utility function 'U'.
 function optimal_policy(mdp::T, U::Dict) where {T <: AbstractMarkovDecisionProcess}
     local pi::Dict = Dict();
     for state in mdp.states
+        # @info "state:", state
+        # @info " actions: ", collect(actions(mdp, state))
+        # for a in (collect(actions(mdp, state)))
+           # @info "utility of: ", a, " is ", expected_utility(mdp, U, state, a)
+        # end
+
         pi[state] = argmax(collect(actions(mdp, state)), (function(action::Union{Nothing, Tuple{Int64, Int64}})
                                                                 return expected_utility(mdp, U, state, action);
                                                             end));
+        # @info "optimal: ", pi[state]
     end
     return pi;
 end
@@ -269,18 +261,7 @@ Return the updated utilities of the MDP's states by applying the modified policy
 algorithm on the given Markov decision process 'mdp', utility function 'U', policy 'pi',
 and number of Bellman updates to use 'k'.
 """
-function policy_evaluation(pi::Dict, U::Dict, mdp::T; k::Int64=20) where {T <: AbstractMarkovDecisionProcess}
-    for i in 1:k
-        for state in mdp.states
-            U[state] = (reward(mdp, state)
-                        + (mdp.gamma
-                        * sum((p * U[state_prime] for (p, state_prime) in transition_model(mdp, state, pi[state])))));
-        end
-    end
-    return U;
-end
-
-function policy_evaluation(pi::Dict, U::Dict, gmdp::GridMarkovDecisionProcess; k::Int64=20)
+function policy_evaluation(pi::Dict, U::Dict, gmdp::GridMarkovDecisionProcess; k::Int64=200)
     for i in 1:k
         for state in gmdp.states
             U[state] = (reward(gmdp, state)
@@ -313,14 +294,30 @@ function policy_iteration(mdp::T) where {T <: AbstractMarkovDecisionProcess}
             end
         end
         if (unchanged)
+            println(show_grid(mdp, U))
             return pi;
         end
     end
 end
 
 #-----
+# Value Iteration
 
-result = value_iteration(sequential_decision_environment, epsilon=0.0000001, maxiter=1000)
-println(result)
-r = show_grid(sequential_decision_environment, result)
+println("BEGIN VALUE ITERATION")
+U = value_iteration(sequential_decision_environment, epsilon=0.0000001, maxiter=100)
+println(U)
+r = show_grid(sequential_decision_environment, U)
 println(r)
+
+pi = optimal_policy(sequential_decision_environment, U)
+println(pi)
+r = to_arrows(sequential_decision_environment, pi)
+println(r);
+
+# -----
+# Policy Iteration
+println("BEGIN POLICY ITERATION")
+pi = policy_iteration(sequential_decision_environment)
+println(pi)
+r = to_arrows(sequential_decision_environment, pi)
+println(r);
